@@ -1,0 +1,186 @@
+﻿@page "/"
+@using BlazorApp.Shared
+@using FluentValidation
+@using MudBlazor
+@inject HttpClient Http
+
+@inject ISnackbar Snackbar
+
+<MudGrid Justify="Justify.Center" Style="align-items: center;margin-top: 220px; padding:10px;">
+    
+    <MudPaper Square="true" Elevation="3" Style="padding:60px;">
+
+        <MudStack Style="width: 100%" Spacing="4" AlignItems="AlignItems.Start">
+            <MudForm Model="@_model" @ref="@form"
+                     @bind-IsValid="_isValid"
+                     @bind-IsTouched="_isTouched"
+                     Validation="@_validationRules.ValidateValue">
+                <MudItem>
+                    <MudTextField @bind-Value="_model.Name" Label="Your Name" Variant="Variant.Text" T="string" For="@(()=>_model.Name)"></MudTextField>
+                </MudItem>
+                <MudItem>
+                    <MudFileUpload T="IReadOnlyList<IBrowserFile>"
+                                   @ref="@_fileUpload"
+                                   @bind-Files="_model.Files"
+                                   For="@(() => _model.Files)"
+                                   AppendMultipleFiles
+                                   Hidden="@false"
+                                   InputClass="absolute mud-width-full mud-height-full overflow-hidden z-10"
+                                   InputStyle="opacity:0"
+                                   ErrorText="@string.Empty"
+                                   tabindex="-1"
+                                   @ondrop="@ClearDragClass"
+                                   @ondragenter="@SetDragClass"
+                                   @ondragleave="@ClearDragClass"
+                                   @ondragend="@ClearDragClass">
+                        <ActivatorContent>
+                            <MudPaper Height="300px"
+                                      Outlined="true"
+                                      Class="@_dragClass">
+                                <MudText Typo="Typo.h6">
+                                    Drag and drop photos here or click
+                                </MudText>
+                                @foreach (var file in _model.Files?.Select(file => file.Name) ?? Enumerable.Empty<string>())
+                                {
+                                    <MudChip T="string" Color="Color.Dark" Text="@file" />
+                                }
+                            </MudPaper>
+                        </ActivatorContent>
+                    </MudFileUpload>
+                    <MudToolBar Gutters="@false"
+                                Class="relative d-flex justify-end gap-4">
+                        <MudButton Color="Color.Primary"
+                                   OnClick="@OpenFilePickerAsync"
+                                   Variant="Variant.Filled">
+                            Open file picker
+                        </MudButton>
+                        <MudButton Color="Color.Primary"
+                                   Disabled="@(!_isValid || !_isTouched || _model.Files is null || !_model.Files.Any())"
+                                   OnClick="@Upload"
+                                   Variant="Variant.Filled">
+                            Upload
+                        </MudButton>
+                        <MudButton Color="Color.Error"
+                                   Disabled="@(_model.Files is null || !_model.Files.Any())"
+                                   OnClick="@ClearAsync"
+                                   Variant="Variant.Filled">
+                            Clear
+                        </MudButton>
+                    </MudToolBar>
+                </MudItem>
+                <MudItem>
+                    @if (_fileUpload?.ValidationErrors.Any() ?? false)
+                    {
+                        <MudText Color="Color.Error"
+                                 Typo="@Typo.caption">
+                            @_fileUpload?.ValidationErrors[0]
+                        </MudText>
+                    }
+                </MudItem>
+            </MudForm>
+        </MudStack>
+    </MudPaper>
+</MudGrid>
+@code {
+    #nullable enable
+    public class Model
+    {
+        public IReadOnlyList<IBrowserFile>? Files { get; set; } = new List<IBrowserFile>();
+        public string Name { get; set; } = string.Empty;
+    }
+    private MudForm form;
+    private Model _model = new();
+    private ModelFluentValidator _validationRules = new();
+    private MudFileUpload<IReadOnlyList<IBrowserFile>>? _fileUpload;
+    private bool _isValid;
+    private bool _isTouched;
+    private const string FileContent = "this is content";
+    private const string DefaultDragClass = "relative rounded-lg border-2 border-dashed pa-4 mt-4 mud-width-full mud-height-full";
+    private string _dragClass = DefaultDragClass;
+
+    private async Task Upload()
+    {
+        // Upload the files here
+        Snackbar.Configuration.PositionClass = Defaults.Classes.Position.TopCenter;
+
+        await form.Validate();
+
+        if (form.IsValid)
+        {
+            UploadRequest request = new UploadRequest()
+                {
+                    PersonName = _model.Name,
+                    Photos = new Dictionary<string, byte[]>()
+
+                };
+            foreach (var photo in _model.Files)
+            {
+                if (photo == null)
+                    continue;
+
+                using (var ms = new MemoryStream())
+                {
+                    await photo.OpenReadStream().CopyToAsync(ms);
+                    var fileBytes = ms.ToArray();
+                    request.Photos.Add(photo.Name, fileBytes);
+                }
+            }
+
+            var resp = await Http.PostAsJsonAsync("/api/UploadPhotosForPerson", request);
+
+            if (resp.IsSuccessStatusCode)
+            {
+                Snackbar.Add($"Thank you {_model.Name} for sharing!", MudBlazor.Severity.Success);
+                await ClearAsync();
+                _model = new Model();
+            }
+            else
+            {
+                Snackbar.Add($"Failed to submit photos", MudBlazor.Severity.Error);
+            }
+        }
+    }
+
+    private void SetDragClass()
+        => _dragClass = $"{DefaultDragClass} mud-border-primary";
+
+    private void ClearDragClass()
+        => _dragClass = DefaultDragClass;
+
+    private Task OpenFilePickerAsync()
+        => _fileUpload?.OpenFilePickerAsync() ?? Task.CompletedTask;
+
+    private Task ClearAsync()
+        => _fileUpload?.ClearAsync() ?? Task.CompletedTask;
+
+    public class ModelFluentValidator : AbstractValidator<Model>
+    {
+        public ModelFluentValidator()
+        {
+            RuleFor(x => x.Files)
+                .NotEmpty()
+                .WithMessage("There must be at least 1 file.");
+
+            RuleForEach(x => x.Files).ChildRules(file =>
+            {
+                file.RuleFor(x => x.ContentType)
+                            .Must(t => t.StartsWith("image"))
+                            .WithMessage("You must upload images only.");
+            });
+
+            RuleFor(x => x.Name)
+                .NotEmpty()
+                .MinimumLength(3)
+                .MaximumLength(20)
+                .WithMessage("Please enter a valid name.");
+        }
+
+        public Func<object, string, Task<IEnumerable<string>>> ValidateValue => async (model, propertyName) =>
+        {
+            var result = await ValidateAsync(ValidationContext<Model>.CreateWithOptions((Model)model, x => x.IncludeProperties(propertyName)));
+            return result.IsValid ? Array.Empty<string>() : result.Errors.Select(e => e.ErrorMessage);
+        };
+    }
+}
+
+

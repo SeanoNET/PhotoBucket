@@ -1,0 +1,33 @@
+﻿@using BlazorApp.Client.Pages
+@using MudBlazor
+@inherits LayoutComponentBase
+
+<MudThemeProvider Theme="MyCustomTheme" />
+<MudPopoverProvider />
+<MudSnackbarProvider />
+<MudDialogProvider />
+
+<MudMainContent>
+    <div style="position: absolute; top: 0; left: 0; bottom: 0; right: 0;">
+
+        <img src="../images/background2.png" style="width:100%; height:100%" />
+
+    </div>
+    <Home />
+</MudMainContent>
+
+@code {
+    MudTheme MyCustomTheme = new MudTheme()
+        {
+            PaletteLight = new PaletteLight()
+            {
+                Primary = Colors.Blue.Default,
+                Secondary = Colors.Blue.Lighten5,
+            },
+            LayoutProperties = new LayoutProperties()
+            {
+                DrawerWidthLeft = "260px",
+                DrawerWidthRight = "300px"
+            }
+        };
+}
