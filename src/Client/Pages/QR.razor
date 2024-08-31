@@ -1,0 +1,28 @@
+﻿@page "/qr"
+@using BlazorApp.Shared
+@using FluentValidation
+@using MudBlazor
+
+<PageTitle>Casey & Sean's Wedding Photo Upload</PageTitle>
+
+<MudGrid Justify="Justify.Center" Style="align-items: center;margin-top: 15%; padding:15px;">
+    <MudItem xs="12">
+        <h1 style="font-family: 'Playwrite CU' , cursive;font-optical-sizing: auto;font-weight:900;font-style: normal;text-align: center;">Casey & Sean's Wedding 2024</h1>
+    </MudItem>
+    <MudPaper Square="true" Elevation="3" Style="padding:60px;margin-top:15px;">
+
+        <MudStack Style="width: 100%" Spacing="4" AlignItems="AlignItems.Start">
+            <MudItem>
+                <h3 style="font-family: 'Playwrite CU' , cursive;font-optical-sizing: auto;font-weight:100;font-style: normal; text-align: center;">Please Share Your Photos With Us!</h3>
+            </MudItem>
+            <MudItem>
+                <MudImage Src="./images/bit.ly_cswedding2024.png" Width="480" Height="480" Alt="QR Code" Elevation="25" Class="rounded-lg ma-4" />
+            </MudItem>
+            <MudItem>
+                <center>
+                    <h4 style="font-family: 'Playwrite CU' , cursive;font-optical-sizing: auto;font-weight:100;font-style: normal; text-align: center;">Scan Me With Your Camera App!</h4>
+                </center>
+            </MudItem>
+        </MudStack>
+    </MudPaper>
+</MudGrid>

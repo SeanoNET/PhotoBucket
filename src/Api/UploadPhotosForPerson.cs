@@ -50,22 +50,26 @@ namespace Api
                 }
                 _logger.LogInformation($"Uploading {uploadRequest.Photos.Count()} to storage for {uploadRequest.PersonName}");
 
-                var storageName = uploadRequest.PersonName.ToLower();
-                if (!IsValidStorageContainerName(storageName))
+                var containerName = uploadRequest.PersonName.ToLower();
+                if (!IsValidStorageContainerName(containerName))
                 {
-                    storageName = Guid.NewGuid().ToString();
+                    containerName = Guid.NewGuid().ToString();
+                }
+                else
+                {
+                    containerName = CleanContainerName(containerName);  
                 }
 
                 var connection = System.Environment.GetEnvironmentVariable("StorageAccountConnectionString");
                 var blobServiceClient = new BlobServiceClient(connection);
 
-                if(!CreateIfNotContainerNameExistsAlready(blobServiceClient, storageName))
+                if(!CreateIfNotContainerNameExistsAlready(blobServiceClient, containerName))
                 {
-                    _logger.LogError($"Failed to create storage container {storageName}");
+                    _logger.LogError($"Failed to create storage container {containerName}");
                     return req.CreateResponse(HttpStatusCode.InternalServerError);
                 }
 
-                BlobContainerClient containerClient = blobServiceClient.GetBlobContainerClient(storageName);
+                BlobContainerClient containerClient = blobServiceClient.GetBlobContainerClient(containerName);
                 foreach (var photo in uploadRequest.Photos)
                 {
                     try
@@ -80,7 +84,7 @@ namespace Api
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogWarning($"Failed to upload file. {ex.Message}", ex);
+                        _logger.LogWarning($"Failed to upload file. {ex.Message} - file name {photo.Key}, size {photo.Value.Length}", ex);
                     }
                 }
                 
@@ -118,5 +122,14 @@ namespace Api
 
             return true;
         }
+
+        private string CleanContainerName(string containerName)
+        {
+            containerName = containerName.RemoveWhitespace();
+            containerName = containerName.RemoveSpecialCharacters();
+            return containerName;
+        }
+
+     
     }
 }
